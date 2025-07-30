@@ -37,6 +37,7 @@ PDF_FILE_PATH = "the-blessings-of-gratitude.pdf"
 # Extract text from the PDF using the path
 pdf_text = extract_text_from_pdf(PDF_FILE_PATH)
 
+
 def generate_answers(content, query):
     prompt = f"""
 You are a helpful assistant trained to answer ONLY from the following content:
@@ -71,6 +72,7 @@ When answering, use the following format:
     except Exception as e:
         return f"Error: {str(e)}"
 
+
 def save_feedback(rating, suggestion):
     feedback_file = "feedback.xlsx"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -92,6 +94,7 @@ def save_feedback(rating, suggestion):
     except Exception as e:
         st.error(f"❌ Error saving feedback: {e}")
 
+
 def save_open_feedback(feedback):
     feedback_file = "feedback_data.xlsx"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -108,6 +111,7 @@ def save_open_feedback(feedback):
         st.error("❌ Please close the feedback Excel file first.")
     except Exception as e:
         st.error(f"❌ Error saving feedback: {e}")
+
 
 # ------------------ Streamlit UI ------------------
 
@@ -126,54 +130,50 @@ with st.sidebar:
 # Main Title
 st.title("🕌📖 The Blessings of Gratitude Chatbot")
 
-# Load PDF Content
-PDF_FILE_PATH = "the-blessings-of-gratitude.pdf"
-
-if not os.path.exists(PDF_FILE_PATH):
-    st.error("❌ PDF file not found. Please upload or check the filename.")
+# Use extracted pdf_text (already loaded)
+if pdf_text.startswith("Error"):
+    st.error(pdf_text)
 else:
     if 'pdf_content' not in st.session_state:
-        st.session_state['pdf_content'] = extract_text_from_pdf(PDF_FILE_PATH)
+        st.session_state['pdf_content'] = pdf_text
 
-    if st.session_state['pdf_content'].startswith("Error"):
-        st.error(st.session_state['pdf_content'])
-    else:
-        user_query = st.text_input("💬 What would you like to ask from the booklet?")
+    user_query = st.text_input("💬 What would you like to ask from the booklet?")
 
-        if 'helpful_feedback' not in st.session_state:
-            st.session_state['helpful_feedback'] = None
+    if 'helpful_feedback' not in st.session_state:
+        st.session_state['helpful_feedback'] = None
 
-        if st.button("🔍 Get Answer"):
-            if user_query.strip() == "":
-                st.warning("⚠️ Please type a question first.")
-            else:
-                answer = generate_answers(st.session_state['pdf_content'], user_query)
-                st.subheader("📘 Answer:")
-                st.markdown(answer)
+    if st.button("🔍 Get Answer"):
+        if user_query.strip() == "":
+            st.warning("⚠️ Please type a question first.")
+        else:
+            answer = generate_answers(st.session_state['pdf_content'], user_query)
+            st.subheader("📘 Answer:")
+            st.markdown(answer)
 
-                # Feedback radio
-                st.markdown("### 😊 Was this helpful?")
-                helpful = st.radio(
-                    "Please choose an option:",
-                    ("👍 Yes, very helpful", "👎 Not really"),
-                    key="helpful_feedback"
-                )
+            # Feedback radio
+            st.markdown("### 😊 Was this helpful?")
+            helpful = st.radio(
+                "Please choose an option:",
+                ("👍 Yes, very helpful", "👎 Not really"),
+                key="helpful_feedback"
+            )
 
-                if st.button("Submit Feedback on Answer"):
-                    save_feedback(helpful, user_query)
+            if st.button("Submit Feedback on Answer"):
+                save_feedback(helpful, user_query)
 
-        # Open-ended Feedback Section
-        st.markdown("## 📝 Additional Feedback")
-        feedback = st.text_area("✍️ Your thoughts:", height=150)
-        if st.button("Submit Additional Feedback"):
-            if feedback.strip():
-                save_open_feedback(feedback)
-            else:
-                st.warning("⚠️ Please enter some feedback before submitting.")
+    # Open-ended Feedback Section
+    st.markdown("## 📝 Additional Feedback")
+    feedback = st.text_area("✍️ Your thoughts:", height=150)
+    if st.button("Submit Additional Feedback"):
+        if feedback.strip():
+            save_open_feedback(feedback)
+        else:
+            st.warning("⚠️ Please enter some feedback before submitting.")
 
-        # Clear session
-        if st.button("🔄 Clear All"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.success("✅ Session cleared.")
+    # Clear session
+    if st.button("🔄 Clear All"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.success("✅ Session cleared.")
+
 
