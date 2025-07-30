@@ -31,6 +31,12 @@ def extract_text_from_pdf(pdf_path):
         return f"Error reading PDF: {e}"
     return clean_text(text)
 
+# Specify your PDF file path here:
+PDF_FILE_PATH = "the-blessings-of-gratitude.pdf"
+
+# Extract text from the PDF using the path
+pdf_text = extract_text_from_pdf(PDF_FILE_PATH)
+
 def generate_answers(content, query):
     prompt = f"""
 You are a helpful assistant trained to answer ONLY from the following content:
