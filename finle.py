@@ -8,18 +8,18 @@ import pandas as pd
 from datetime import datetime
 import openpyxl  # Required for Excel writing
 
-# Load environment variables and API key
+# ------------------ Load API Key ------------------
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Clean and preprocess text
+# ------------------ Utility Functions ------------------
+
 def clean_text(text):
     return re.sub(r'\s+', ' ', text.strip().lower())
 
-# Extract text from PDF
-def extract_text_from_pdf(the-blessings-of-gratitude.pdf):
+def extract_text_from_pdf(pdf_path):
     text = ""
     try:
         reader = PdfReader(pdf_path)
@@ -31,7 +31,6 @@ def extract_text_from_pdf(the-blessings-of-gratitude.pdf):
         return f"Error reading PDF: {e}"
     return clean_text(text)
 
-# Gemini Q&A generation
 def generate_answers(content, query):
     prompt = f"""
 You are a helpful assistant trained to answer ONLY from the following content:
@@ -40,17 +39,19 @@ You are a helpful assistant trained to answer ONLY from the following content:
 {content} 
 \"\"\"
 
-👋 I'm here to help only with what's inside The Blessings of Gratitude by Dawat-e-Islami. Could you please ask something related to thankfulness, Islamic teachings, or the topics covered in this booklet?
-When answering, use the following clear format if possible:
+👋 I'm here to help only with what's inside *The Blessings of Gratitude* by Dawat-e-Islami. Could you please ask something related to thankfulness, Islamic teachings, or the topics covered in this booklet?
+
+When answering, use the following format:
 
 📌 Topic:
-[Short summary of the topic or section from the booklet]
+[Short summary]
 
 📚 Key Islamic Teachings:
-[Core points based on the content, with references to hadith or Quran if available]
+[Main teachings from the booklet, Qur'an, or Hadith]
 
 🕌 Spiritual Reflection or Advice:
-[Practical takeaway, spiritual advice, or moral action based on Islamic guidance]
+[Practical takeaway or spiritual advice based on Islamic guidance]
+
 **{query}**
 """
     try:
@@ -64,16 +65,14 @@ When answering, use the following clear format if possible:
     except Exception as e:
         return f"Error: {str(e)}"
 
-# Save feedback from radio buttons (helpful or not)
 def save_feedback(rating, suggestion):
     feedback_file = "feedback.xlsx"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    feedback_data = {
+    df_new = pd.DataFrame({
         "Timestamp": [now],
         "Helpful": [rating],
         "Suggestion": [suggestion]
-    }
-    df_new = pd.DataFrame(feedback_data)
+    })
     try:
         if os.path.exists(feedback_file):
             df_existing = pd.read_excel(feedback_file)
@@ -81,17 +80,16 @@ def save_feedback(rating, suggestion):
         else:
             df_combined = df_new
         df_combined.to_excel(feedback_file, index=False)
-        st.success(f"✅ Feedback saved successfully!\n📁 Saved at: `{os.path.abspath(feedback_file)}`")
+        st.success("✅ Feedback saved successfully.")
     except PermissionError:
-        st.error("❌ Permission denied: Please close the feedback Excel file if it is open.")
+        st.error("❌ Please close the feedback Excel file first.")
     except Exception as e:
         st.error(f"❌ Error saving feedback: {e}")
 
-# Save open-form textual feedback
 def save_open_feedback(feedback):
+    feedback_file = "feedback_data.xlsx"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     new_entry = pd.DataFrame([[now, feedback]], columns=["Timestamp", "Feedback"])
-    feedback_file = "feedback_data.xlsx"
     try:
         if os.path.exists(feedback_file):
             old_df = pd.read_excel(feedback_file)
@@ -99,79 +97,77 @@ def save_open_feedback(feedback):
         else:
             df = new_entry
         df.to_excel(feedback_file, index=False)
-        st.success("✅ Feedback saved successfully! Thank you for your input.")
+        st.success("✅ Feedback saved. JazakAllah!")
     except PermissionError:
-        st.error("❌ Permission denied: Please close the feedback Excel file if it is open.")
+        st.error("❌ Please close the feedback Excel file first.")
     except Exception as e:
         st.error(f"❌ Error saving feedback: {e}")
 
-# Set up Streamlit
-st.set_page_config(page_title="Preprimary Syllabus Assistant")
+# ------------------ Streamlit UI ------------------
 
-# Sidebar Contact Info
+st.set_page_config(page_title="🕌 The Blessings of Gratitude")
+
+# Sidebar
 with st.sidebar:
-    st.header("📬 Get in Touch")
+    st.header("📬 Contact")
     st.markdown("""
 **Mahwish Kiran**  
 📧 [mahwishpy@gmail.com](mailto:mahwishpy@gmail.com)  
 🔗 [Facebook](https://www.facebook.com/share/1BBXjgbXPS/)  
 🔗 [LinkedIn](https://www.linkedin.com/in/mahwish-kiran-842945353)  
-
-_Made with ❤️ for every child's first step._
     """)
 
-# Main Title & Intro
-st.title("🕌📖The-blessings-of-gratitude by Dawat-e-islami")
+# Main Title
+st.title("🕌📖 The Blessings of Gratitude Chatbot")
 
-# Load PDF content
-PDF_FILE_PATH = r"the-blessings-of-gratitude.pdf"
+# Load PDF Content
+PDF_FILE_PATH = "the-blessings-of-gratitude.pdf"
 
-if 'pdf_content' not in st.session_state:
-    st.session_state['pdf_content'] = extract_text_from_pdf(PDF_FILE_PATH)
+if not os.path.exists(PDF_FILE_PATH):
+    st.error("❌ PDF file not found. Please upload or check the filename.")
+else:
+    if 'pdf_content' not in st.session_state:
+        st.session_state['pdf_content'] = extract_text_from_pdf(PDF_FILE_PATH)
 
-if st.session_state['pdf_content'].startswith("Error"):
-    st.error(st.session_state['pdf_content'])
-
-# User query
-user_query = st.text_input("💬 What would you like to know?")
-
-# Store feedback radio choice in session state to avoid re-selection after rerun
-if 'helpful_feedback' not in st.session_state:
-    st.session_state['helpful_feedback'] = None
-
-# Q&A Answer Section
-if st.button("🔍 Get Answer") and st.session_state['pdf_content']:
-    if user_query.strip() == "":
-        st.warning("Oops! Please type your question before clicking.")
+    if st.session_state['pdf_content'].startswith("Error"):
+        st.error(st.session_state['pdf_content'])
     else:
-        answer = generate_answers(st.session_state['pdf_content'], user_query)
-        st.subheader("📘 Here's what I found:")
-        st.markdown(answer)
+        user_query = st.text_input("💬 What would you like to ask from the booklet?")
 
-        # Feedback radio
-        st.markdown("### 😊 Was this helpful for you?")
-        helpful = st.radio("Please choose an option:", ("👍 Yes, it was super helpful!", "👎 Hmm, not really."), index=0, key="helpful_feedback")
+        if 'helpful_feedback' not in st.session_state:
+            st.session_state['helpful_feedback'] = None
 
-        # Save feedback button for radio feedback
-        if st.button("Submit Feedback on Answer"):
-            save_feedback(helpful, user_query)
+        if st.button("🔍 Get Answer"):
+            if user_query.strip() == "":
+                st.warning("⚠️ Please type a question first.")
+            else:
+                answer = generate_answers(st.session_state['pdf_content'], user_query)
+                st.subheader("📘 Answer:")
+                st.markdown(answer)
 
-# ------------------------------------
-# 📝 Additional Feedback Section (open-form)
-# ------------------------------------
-st.markdown("## 📝 Additional Feedback Section")
+                # Feedback radio
+                st.markdown("### 😊 Was this helpful?")
+                helpful = st.radio(
+                    "Please choose an option:",
+                    ("👍 Yes, very helpful", "👎 Not really"),
+                    key="helpful_feedback"
+                )
 
-st.subheader("✍️ Feedback")
-feedback = st.text_area("Tell us what you think (max 500 words):", height=150)
+                if st.button("Submit Feedback on Answer"):
+                    save_feedback(helpful, user_query)
 
-if st.button("Submit Additional Feedback"):
-    if feedback.strip():
-        save_open_feedback(feedback)
-    else:
-        st.warning("⚠️ Please enter feedback before submitting.")
+        # Open-ended Feedback Section
+        st.markdown("## 📝 Additional Feedback")
+        feedback = st.text_area("✍️ Your thoughts:", height=150)
+        if st.button("Submit Additional Feedback"):
+            if feedback.strip():
+                save_open_feedback(feedback)
+            else:
+                st.warning("⚠️ Please enter some feedback before submitting.")
 
-# Clear all session state and inputs
-if st.button("Clear All Inputs"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.success("All inputs cleared.")
+        # Clear session
+        if st.button("🔄 Clear All"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.success("✅ Session cleared.")
+
